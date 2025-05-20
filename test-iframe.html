@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iframe Test Sayfası</title>
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+      iframe {
+        border: 2px solid blue;
+        margin-top: 15px;
+      }
+      #result-area {
+        margin-top: 15px;
+        border: 1px solid green;
+        padding: 10px;
+        min-height: 50px;
+      }
+      #result-area img {
+        max-width: 100%;
+        height: auto;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sanal Deneme Iframe Testi</h1>
+
+    <p>
+      Aşağıdaki iframe, yerel sunucuda çalışan sanal deneme uygulamasını
+      yükleyecektir. Model ve kıyafet bilgileri URL parametreleri ile iletilir.
+    </p>
+
+    <label for="customerId">Müşteri ID:</label>
+    <input type="text" id="customerId" value="testMusteri1" />
+    <br />
+    <label for="modelId">Model ID:</label>
+    <input type="text" id="modelId" value="standart-erkek" />
+    <br />
+    <label for="kiyafetId">Kıyafet ID:</label>
+    <input type="text" id="kiyafetId" value="gomlek-01" />
+    <br />
+    <button id="load-iframe-btn">Iframe'i Yükle / Güncelle</button>
+
+    <iframe
+      id="tryon-iframe"
+      width="800"
+      height="600"
+      title="Sanal Deneme"
+    ></iframe>
+
+    <h2>Iframe'den Gelen Sonuç:</h2>
+    <div id="result-area">
+      <p>Henüz bir sonuç alınmadı...</p>
+      <img id="result-image" src="" alt="Sonuç Görseli" style="display: none" />
+    </div>
+
+    <script>
+      const iframeElement = document.getElementById("tryon-iframe");
+      const resultArea = document.getElementById("result-area");
+      const resultImage = document.getElementById("result-image");
+      const customerIdInput = document.getElementById("customerId");
+      const modelIdInput = document.getElementById("modelId");
+      const kiyafetIdInput = document.getElementById("kiyafetId");
+      const loadButton = document.getElementById("load-iframe-btn");
+
+      // Güvenlik Notu: Gerçek uygulamada origin'i daha spesifik yapın!
+      const trustedTryonOrigin = "http://localhost:8000"; // Geliştirme sunucumuzun adresi
+
+      function loadIframe() {
+        const customerId = customerIdInput.value;
+        const modelId = modelIdInput.value;
+        const kiyafetId = kiyafetIdInput.value;
+
+        if (!customerId || !modelId || !kiyafetId) {
+          alert("Lütfen tüm ID alanlarını doldurun.");
+          return;
+        }
+
+        const iframeSrc = `${trustedTryonOrigin}/frontend/?customerId=${encodeURIComponent(
+          customerId
+        )}&model=${encodeURIComponent(modelId)}&kiyafet=${encodeURIComponent(
+          kiyafetId
+        )}`;
+        console.log("Iframe src ayarlanıyor:", iframeSrc);
+        iframeElement.src = iframeSrc;
+        resultArea.innerHTML = "<p>Iframe yüklendi, sonuç bekleniyor...</p>";
+        resultImage.style.display = "none";
+        resultImage.src = "";
+      }
+
+      loadButton.addEventListener("click", loadIframe);
+
+      // Iframe'den gelen mesajları dinle
+      window.addEventListener(
+        "message",
+        (event) => {
+          // Kaynağı doğrula (Geliştirme için localhost:8000 yeterli)
+          if (event.origin !== trustedTryonOrigin) {
+            console.warn(
+              `Güvenilmeyen kaynaktan mesaj: ${event.origin}. İptal edildi.`
+            );
+            return;
+          }
+
+          // Mesajın beklenen formatta olup olmadığını kontrol et
+          if (
+            event.data &&
+            event.data.type === "virtualTryonResult" &&
+            event.data.imageUrl
+          ) {
+            const receivedCustomerId = event.data.customerId;
+            const receivedImageUrl = event.data.imageUrl;
+
+            console.log(
+              `Iframe'den sonuç alındı (Müşteri: ${receivedCustomerId}):`,
+              receivedImageUrl.substring(0, 50) + "..."
+            );
+
+            resultArea.innerHTML = `<p>Sonuç (Müşteri: ${receivedCustomerId}) alındı:</p>`;
+            resultImage.src = receivedImageUrl;
+            resultImage.style.display = "block";
+          } else {
+            console.log("Alınan mesaj beklenen formatta değil:", event.data);
+          }
+        },
+        false
+      );
+
+      console.log("Test sayfası yüklendi, iframe mesajları dinleniyor.");
+
+      // Sayfa ilk yüklendiğinde iframe'i otomatik yükle (isteğe bağlı)
+      // loadIframe();
+    </script>
+  </body>
+</html>

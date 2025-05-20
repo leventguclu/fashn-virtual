@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sanal Giysi Deneme</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Sanal Giysi Deneme</h1>
+
+      <div class="upload-section">
+        <div class="upload-box" id="model-upload">
+          <h2>Model Görüntüsü</h2>
+          <div class="preview" id="model-preview">
+            <p>Görüntü önizlemesi burada görünecek</p>
+          </div>
+          <input type="file" id="model-input" accept="image/*" />
+          <label for="model-input" class="upload-btn"
+            >Model Görüntüsü Seç</label
+          >
+        </div>
+
+        <div class="upload-box" id="garment-upload">
+          <h2>Giysi Görüntüsü</h2>
+          <div class="preview" id="garment-preview">
+            <p>Görüntü önizlemesi burada görünecek</p>
+          </div>
+          <input type="file" id="garment-input" accept="image/*" />
+          <label for="garment-input" class="upload-btn"
+            >Giysi Görüntüsü Seç</label
+          >
+        </div>
+      </div>
+
+      <div class="options-section">
+        <h2>Seçenekler</h2>
+
+        <div class="option-group">
+          <label for="category">Giysi Kategorisi:</label>
+          <select id="category">
+            <option value="auto">Otomatik Algıla</option>
+            <option value="tops">Üst Giyim</option>
+            <option value="bottoms">Alt Giyim</option>
+            <option value="one-pieces">Tek Parça</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label for="mode">Kalite Modu:</label>
+          <select id="mode">
+            <option value="balanced">Dengeli</option>
+            <option value="performance">Performans</option>
+            <option value="quality">Yüksek Kalite</option>
+          </select>
+        </div>
+
+        <div class="option-group checkbox">
+          <input type="checkbox" id="segmentation-free" checked />
+          <label for="segmentation-free"
+            >Segmentasyon Olmadan (Nightly API)</label
+          >
+        </div>
+      </div>
+
+      <button id="try-on-btn" class="primary-btn" disabled>Giysiyi Dene</button>
+
+      <div class="result-section" id="result-section" style="display: none">
+        <h2>Sonuç</h2>
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p id="status-text">İşleniyor...</p>
+        </div>
+        <div class="result-image" id="result-image" style="display: none">
+          <img id="output-image" src="" alt="Sanal Giysi Deneme Sonucu" />
+          <a
+            id="download-btn"
+            class="secondary-btn"
+            download="virtual-tryon-result.jpg"
+            >Sonucu İndir</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

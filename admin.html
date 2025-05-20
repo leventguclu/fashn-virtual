@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Müşteri Yönetim Paneli</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        line-height: 1.6;
+        padding: 20px;
+      }
+      h1,
+      h2,
+      h3 {
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 5px;
+        margin-top: 30px;
+      }
+      #add-customer-form label,
+      #add-customer-form input {
+        display: block;
+        margin-bottom: 10px;
+      }
+      #add-customer-form input[type="text"] {
+        width: 300px;
+        padding: 8px;
+      }
+      #add-customer-form button {
+        padding: 10px 15px;
+        cursor: pointer;
+      }
+      #customer-list ul {
+        list-style: none;
+        padding: 0;
+      }
+      #customer-list li {
+        border: 1px solid #eee;
+        margin-bottom: 5px;
+        padding: 10px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #customer-list li:hover {
+        background-color: #f0f0f0;
+      }
+      #customer-details {
+        border: 1px dashed blue;
+        padding: 15px;
+        margin-top: 20px;
+        display: none;
+      } /* Başlangıçta gizli */
+      #session-list table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+      }
+      #session-list th,
+      #session-list td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      #session-list th {
+        background-color: #f2f2f2;
+      }
+      #session-list img {
+        max-width: 50px;
+        max-height: 50px;
+        vertical-align: middle;
+      }
+      .loading {
+        font-style: italic;
+        color: grey;
+      }
+      .error {
+        color: red;
+        font-weight: bold;
+      }
+      .customer-info span {
+        font-weight: bold;
+      }
+      .customer-actions button {
+        margin-left: 10px;
+      }
+    </style>
+    <!-- Supabase JS Kütüphanesi (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <h1>Müşteri Yönetim Paneli</h1>
+
+    <section id="add-customer">
+      <h2>Yeni Müşteri Ekle</h2>
+      <form id="add-customer-form">
+        <label for="customer-slug"
+          >Müşteri Kısa Kodu (Slug - Benzersiz olmalı, URL'de
+          kullanılacak):</label
+        >
+        <input
+          type="text"
+          id="customer-slug"
+          required
+          placeholder="ornek-firma-1"
+        />
+
+        <label for="company-name">Firma İsmi:</label>
+        <input type="text" id="company-name" required />
+
+        <label for="contact-name">Yetkili İsim Soyisim:</label>
+        <input type="text" id="contact-name" required />
+
+        <label for="allowed-origins"
+          >İzin Verilen Domainler (Virgülle ayırın):</label
+        >
+        <input
+          type="text"
+          id="allowed-origins"
+          placeholder="https://musteri.com, https://test.musteri.com"
+        />
+
+        <!-- API Key alanı şimdilik eklenmedi, isteğe bağlı -->
+
+        <button type="submit">Müşteriyi Ekle</button>
+      </form>
+      <div id="add-customer-status"></div>
+    </section>
+
+    <section id="customer-list">
+      <h2>Mevcut Müşteriler</h2>
+      <ul id="customers">
+        <li class="loading">Müşteriler yükleniyor...</li>
+      </ul>
+    </section>
+
+    <section id="customer-details">
+      <h2>Müşteri Detayları</h2>
+      <div id="details-content">
+        <!-- Seçilen müşteri bilgileri buraya gelecek -->
+      </div>
+      <h3>Deneme Geçmişi (Try-on Sessions)</h3>
+      <div id="session-list">
+        <!-- Deneme geçmişi buraya gelecek -->
+      </div>
+    </section>
+
+    <script>
+      // --- SUPABASE AYARLARI ---
+      const SUPABASE_URL = "https://yunkiwiqbinohpbajtif.supabase.co";
+      const SUPABASE_ANON_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bmtpd2lxYmlub2hwYmFqdGlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDA4MjksImV4cCI6MjA1OTc3NjgyOX0.2RvT44e-c8BGx2dmJbBK3wXo7H2QbFWEjfBkWmArXIQ";
+
+      // Güvenlik Uyarısı: Bu admin paneli sadece Anon Key ile korunuyor.
+      // Gerçek bir uygulamada, bu paneli Supabase Auth ile güvenli hale getirmelisiniz.
+      // Anon Key normalde sadece RLS ile korunan public verilere erişim için kullanılır.
+
+      let supabase = null;
+      if (
+        SUPABASE_URL !== "YOUR_SUPABASE_URL" &&
+        SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY"
+      ) {
+        try {
+          // Düzeltme: Global supabase objesini kullan
+          supabase = window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY
+          );
+          console.log("Supabase bağlantısı başarılı.");
+        } catch (error) {
+          console.error("Supabase başlatılamadı:", error);
+          alert(
+            "Supabase bağlantısı kurulamadı. Lütfen URL ve Anahtarı kontrol edin."
+          );
+        }
+      } else {
+        console.warn("Supabase URL ve Anon Anahtarı ayarlanmamış.");
+        alert(
+          "Lütfen admin.html dosyasındaki SUPABASE_URL ve SUPABASE_ANON_KEY değerlerini ayarlayın."
+        );
+      }
+
+      // --- DOM Elementleri ---
+      const addCustomerForm = document.getElementById("add-customer-form");
+      const customerSlugInput = document.getElementById("customer-slug");
+      const companyNameInput = document.getElementById("company-name");
+      const contactNameInput = document.getElementById("contact-name");
+      const allowedOriginsInput = document.getElementById("allowed-origins");
+      const addCustomerStatus = document.getElementById("add-customer-status");
+      const customersList = document.getElementById("customers");
+      const customerDetailsSection =
+        document.getElementById("customer-details");
+      const detailsContent = document.getElementById("details-content");
+      const sessionList = document.getElementById("session-list");
+
+      // --- Fonksiyonlar ---
+
+      // Müşteri listesini yükle
+      async function loadCustomers() {
+        if (!supabase) return;
+        customersList.innerHTML =
+          '<li class="loading">Müşteriler yükleniyor...</li>'; // Önceki listeyi temizle
+        customerDetailsSection.style.display = "none"; // Detayları gizle
+
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, customer_slug, company_name, contact_name")
+            .order("created_at", { ascending: false });
+
+          if (error) throw error;
+
+          customersList.innerHTML = ""; // Yükleniyor mesajını temizle
+          if (data.length === 0) {
+            customersList.innerHTML = "<li>Henüz kayıtlı müşteri yok.</li>";
+            return;
+          }
+
+          data.forEach((customer) => {
+            const li = document.createElement("li");
+            li.dataset.customerId = customer.id; // UUID'yi sakla
+            li.innerHTML = `
+                        <div class="customer-info">
+                            <span>${customer.company_name}</span> (${customer.contact_name}) - Slug: ${customer.customer_slug}
+                        </div>
+                        <div class="customer-actions">
+                            <button class="view-details-btn">Detayları Gör</button>
+                             <!-- Silme butonu eklenebilir -->
+                        </div>
+                    `;
+            // Detayları görme butonu için olay dinleyici
+            li.querySelector(".view-details-btn").addEventListener(
+              "click",
+              (event) => {
+                event.stopPropagation(); // li elementine tıklamayı tetikleme
+                showCustomerDetails(customer.id); // UUID ile detayları göster
+              }
+            );
+            customersList.appendChild(li);
+          });
+        } catch (error) {
+          console.error("Müşteri listesi yüklenirken hata:", error);
+          customersList.innerHTML =
+            '<li class="error">Müşteriler yüklenemedi.</li>';
+        }
+      }
+
+      // Yeni müşteri ekleme formu gönderildiğinde
+      addCustomerForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!supabase) return;
+
+        addCustomerStatus.textContent = "Ekleniyor...";
+        addCustomerStatus.className = "loading";
+
+        const slug = customerSlugInput.value.trim();
+        const company = companyNameInput.value.trim();
+        const contact = contactNameInput.value.trim();
+        // Virgülle ayrılmış domainleri diziye çevir, boşlukları temizle
+        const origins = allowedOriginsInput.value
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter((origin) => origin !== ""); // Boş girdileri filtrele
+
+        // Basit slug format kontrolü (boşluk vs olmamalı) - daha detaylı kontrol eklenebilir
+        if (!/^[a-z0-9-]+$/.test(slug)) {
+          addCustomerStatus.textContent =
+            "Hata: Müşteri Kısa Kodu sadece küçük harf, rakam ve tire (-) içerebilir.";
+          addCustomerStatus.className = "error";
+          return;
+        }
+
+        try {
+          // Önce slug'ın benzersiz olup olmadığını kontrol et (önemli!)
+          const { data: existing, error: checkError } = await supabase
+            .from("customers")
+            .select("customer_slug")
+            .eq("customer_slug", slug)
+            .maybeSingle(); // Varsa tek kayıt döner, yoksa null
+
+          if (checkError) throw checkError;
+
+          if (existing) {
+            addCustomerStatus.textContent =
+              "Hata: Bu Müşteri Kısa Kodu zaten kullanılıyor.";
+            addCustomerStatus.className = "error";
+            return;
+          }
+
+          // Slug benzersizse ekle
+          const { data, error } = await supabase
+            .from("customers")
+            .insert([
+              {
+                customer_slug: slug,
+                company_name: company,
+                contact_name: contact,
+                allowed_origins: origins.length > 0 ? origins : null, // Boşsa null gönder
+                // api_key: generateApiKey() // İsteğe bağlı olarak anahtar üretebilirsiniz
+              },
+            ])
+            .select(); // Eklenen veriyi geri al (opsiyonel)
+
+          if (error) throw error;
+
+          addCustomerStatus.textContent = "Müşteri başarıyla eklendi!";
+          addCustomerStatus.className = "success"; // CSS'te success sınıfı tanımlanabilir
+          addCustomerForm.reset(); // Formu temizle
+          loadCustomers(); // Listeyi yenile
+        } catch (error) {
+          console.error("Müşteri eklenirken hata:", error);
+          addCustomerStatus.textContent = `Hata: ${error.message}`;
+          addCustomerStatus.className = "error";
+        }
+      });
+
+      // Belirli bir müşterinin detaylarını ve deneme geçmişini göster
+      async function showCustomerDetails(customerId) {
+        // Parametre olarak UUID alıyor
+        if (!supabase) return;
+        console.log("Detaylar gösteriliyor:", customerId);
+
+        detailsContent.innerHTML =
+          '<p class="loading">Müşteri bilgileri yükleniyor...</p>';
+        sessionList.innerHTML =
+          '<p class="loading">Deneme geçmişi yükleniyor...</p>';
+        customerDetailsSection.style.display = "block"; // Bölümü görünür yap
+
+        try {
+          // 1. Müşteri bilgilerini çek
+          const { data: customerData, error: customerError } = await supabase
+            .from("customers")
+            .select("*") // Tüm sütunları alalım
+            .eq("id", customerId) // UUID ile sorgula
+            .single(); // Tek kayıt bekliyoruz
+
+          if (customerError) throw customerError;
+          if (!customerData) throw new Error("Müşteri bulunamadı.");
+
+          // Müşteri bilgilerini göster
+          detailsContent.innerHTML = `
+                    <p><strong>Firma:</strong> ${customerData.company_name}</p>
+                    <p><strong>Yetkili:</strong> ${
+                      customerData.contact_name
+                    }</p>
+                    <p><strong>Müşteri Kodu (Slug):</strong> ${
+                      customerData.customer_slug
+                    }</p>
+                    <p><strong>İzinli Domainler:</strong> ${
+                      customerData.allowed_origins
+                        ? customerData.allowed_origins.join(", ")
+                        : "Yok"
+                    }</p>
+                    <p><strong>UUID (Internal ID):</strong> ${
+                      customerData.id
+                    }</p>
+                    <p><strong>Kayıt Tarihi:</strong> ${new Date(
+                      customerData.created_at
+                    ).toLocaleString()}</p>
+                `;
+
+          // 2. Deneme geçmişini (tryon_sessions) çek
+          const { data: sessionsData, error: sessionsError } = await supabase
+            .from("tryon_sessions")
+            .select("*") // Tüm sütunları al
+            .eq("customer_id", customerId) // Foreign key (UUID) ile filtrele
+            .order("session_timestamp", { ascending: false }) // En yeniden eskiye sırala
+            .limit(50); // Çok fazla kayıt varsa limitle
+
+          if (sessionsError) throw sessionsError;
+
+          // Deneme geçmişini tablo olarak göster
+          if (sessionsData.length === 0) {
+            sessionList.innerHTML =
+              "<p>Bu müşteri için henüz deneme kaydı yok.</p>";
+          } else {
+            let tableHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Model Param</th>
+                                    <th>Kıyafet Param</th>
+                                    <th>Model Görsel</th>
+                                    <th>Kıyafet Görsel</th>
+                                    <th>Sonuç Görsel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+            sessionsData.forEach((session) => {
+              tableHTML += `
+                            <tr>
+                                <td>${new Date(
+                                  session.session_timestamp
+                                ).toLocaleString()}</td>
+                                <td>${
+                                  session.model_identifier_param || "-"
+                                }</td>
+                                <td>${
+                                  session.garment_identifier_param || "-"
+                                }</td>
+                                <td>${
+                                  session.model_image_url
+                                    ? `<a href="${session.model_image_url}" target="_blank"><img src="${session.model_image_url}" alt="Model"></a>`
+                                    : "-"
+                                }</td>
+                                <td>${
+                                  session.garment_image_url
+                                    ? `<a href="${session.garment_image_url}" target="_blank"><img src="${session.garment_image_url}" alt="Kıyafet"></a>`
+                                    : "-"
+                                }</td>
+                                <td>${
+                                  session.result_image_url
+                                    ? `<a href="${session.result_image_url}" target="_blank"><img src="${session.result_image_url}" alt="Sonuç"></a>`
+                                    : "-"
+                                }</td>
+                            </tr>
+                        `;
+            });
+            tableHTML += "</tbody></table>";
+            sessionList.innerHTML = tableHTML;
+          }
+        } catch (error) {
+          console.error("Müşteri detayları yüklenirken hata:", error);
+          detailsContent.innerHTML = `<p class="error">Müşteri bilgileri yüklenemedi: ${error.message}</p>`;
+          sessionList.innerHTML = `<p class="error">Deneme geçmişi yüklenemedi.</p>`;
+        }
+      }
+
+      // --- Başlangıç ---
+      // Sayfa yüklendiğinde müşteri listesini yükle
+      document.addEventListener("DOMContentLoaded", () => {
+        if (supabase) {
+          // Sadece Supabase bağlantısı başarılıysa yükle
+          loadCustomers();
+        }
+      });
+    </script>
+  </body>
+</html>
