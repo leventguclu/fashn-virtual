@@ -7,10 +7,14 @@
     <style>
       body {
         font-family: sans-serif;
+        padding: 15px;
       }
       iframe {
         border: 2px solid blue;
         margin-top: 15px;
+        width: 100%; /* Genişliği responsive yapalım */
+        max-width: 900px; /* Maksimum genişlik */
+        min-height: 600px;
       }
       #result-area {
         margin-top: 15px;
@@ -23,33 +27,67 @@
         height: auto;
         margin-top: 10px;
       }
+      .controls {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+      .controls label {
+        display: inline-block;
+        margin-right: 5px;
+        min-width: 80px;
+      }
+      .controls input[type="text"] {
+        margin-right: 15px;
+        padding: 5px;
+        margin-bottom: 10px;
+      }
+      .controls button {
+        padding: 8px 15px;
+        cursor: pointer;
+      }
+      #fetch-defaults-btn {
+        background-color: #28a745; /* Yeşil renk */
+        color: white;
+        margin-left: 10px; /* Diğer butondan ayırmak için */
+      }
     </style>
   </head>
   <body>
     <h1>Sanal Deneme Iframe Testi</h1>
 
-    <p>
-      Aşağıdaki iframe, yerel sunucuda çalışan sanal deneme uygulamasını
-      yükleyecektir. Model ve kıyafet bilgileri URL parametreleri ile iletilir.
-    </p>
+    <div class="controls">
+      <p>
+        Ana sayfadan bir müşteri seçtiyseniz, Müşteri ID alanı otomatik
+        dolacaktır. Ardından "Veri Al (Defaults ile Iframe Yükle)" butonuna
+        tıklayarak varsayılan model ve kıyafetle iframe'i yükleyebilirsiniz.
+        Alternatif olarak, aşağıdaki alanları manuel doldurup "Manuel Iframe
+        Yükle/Güncelle" butonunu kullanabilirsiniz.
+      </p>
+      <div>
+        <label for="customerId">Müşteri ID:</label>
+        <input type="text" id="customerId" value="" />
+        <!-- Varsayılan değeri boş yapalım -->
+      </div>
+      <div>
+        <label for="modelId">Model ID:</label>
+        <input type="text" id="modelId" value="default_model" />
+        <!-- İstenen default -->
+      </div>
+      <div>
+        <label for="kiyafetId">Kıyafet ID:</label>
+        <input type="text" id="kiyafetId" value="default_garment" />
+        <!-- İstenen default -->
+      </div>
+      <button id="load-iframe-manual-btn">Manuel Iframe Yükle/Güncelle</button>
+      <button id="fetch-defaults-btn">
+        Veri Al (Defaults ile Iframe Yükle)
+      </button>
+    </div>
 
-    <label for="customerId">Müşteri ID:</label>
-    <input type="text" id="customerId" value="testMusteri1" />
-    <br />
-    <label for="modelId">Model ID:</label>
-    <input type="text" id="modelId" value="standart-erkek" />
-    <br />
-    <label for="kiyafetId">Kıyafet ID:</label>
-    <input type="text" id="kiyafetId" value="gomlek-01" />
-    <br />
-    <button id="load-iframe-btn">Iframe'i Yükle / Güncelle</button>
-
-    <iframe
-      id="tryon-iframe"
-      width="800"
-      height="600"
-      title="Sanal Deneme"
-    ></iframe>
+    <iframe id="tryon-iframe" title="Sanal Deneme"></iframe>
 
     <h2>Iframe'den Gelen Sonuç:</h2>
     <div id="result-area">
@@ -64,48 +102,113 @@
       const customerIdInput = document.getElementById("customerId");
       const modelIdInput = document.getElementById("modelId");
       const kiyafetIdInput = document.getElementById("kiyafetId");
-      const loadButton = document.getElementById("load-iframe-btn");
+      const loadManualButton = document.getElementById(
+        "load-iframe-manual-btn"
+      );
+      const fetchDefaultsButton = document.getElementById("fetch-defaults-btn");
 
-      // Güvenlik Notu: Gerçek uygulamada origin'i daha spesifik yapın!
-      const trustedTryonOrigin = "http://localhost:8000"; // Geliştirme sunucumuzun adresi
+      // Inner App (iframe içeriği) URL'si
+      // Kullanıcının verdiği örnek URL: https://fashn-virtual.onrender.com/tryon?customerId=regard-clone&model=default_model&kiyafet=default_garment
+      const INNER_APP_BASE_URL = "https://fashn-virtual.onrender.com/tryon";
+      // Iframe'den mesaj beklediğimiz origin. Inner app ile aynı olmalı.
+      const TRUSTED_IFRAME_ORIGIN = new URL(INNER_APP_BASE_URL).origin;
+
+      function constructIframeSrc(customerId, modelId, kiyafetId) {
+        if (!customerId || !modelId || !kiyafetId) {
+          console.warn("constructIframeSrc: Gerekli ID'ler eksik.");
+          return null;
+        }
+        return `${INNER_APP_BASE_URL}?customerId=${encodeURIComponent(
+          customerId
+        )}&model=${encodeURIComponent(modelId)}&kiyafet=${encodeURIComponent(
+          kiyafetId
+        )}`;
+      }
 
       function loadIframe() {
         const customerId = customerIdInput.value;
         const modelId = modelIdInput.value;
         const kiyafetId = kiyafetIdInput.value;
 
-        if (!customerId || !modelId || !kiyafetId) {
-          alert("Lütfen tüm ID alanlarını doldurun.");
+        if (!customerId) {
+          // Model ve kıyafet için uyarıyı constructIframeSrc halleder.
+          alert("Lütfen bir Müşteri ID girin veya ana sayfadan seçin.");
           return;
         }
 
-        const iframeSrc = `${trustedTryonOrigin}/frontend/?customerId=${encodeURIComponent(
-          customerId
-        )}&model=${encodeURIComponent(modelId)}&kiyafet=${encodeURIComponent(
-          kiyafetId
-        )}`;
-        console.log("Iframe src ayarlanıyor:", iframeSrc);
-        iframeElement.src = iframeSrc;
-        resultArea.innerHTML = "<p>Iframe yüklendi, sonuç bekleniyor...</p>";
-        resultImage.style.display = "none";
-        resultImage.src = "";
+        const iframeSrc = constructIframeSrc(customerId, modelId, kiyafetId);
+        if (iframeSrc) {
+          console.log("Iframe src ayarlanıyor:", iframeSrc);
+          iframeElement.src = iframeSrc;
+          resultArea.innerHTML = "<p>Iframe yüklendi, sonuç bekleniyor...</p>";
+          resultImage.style.display = "none";
+          resultImage.src = "";
+        } else {
+          alert(
+            "Iframe URL'si oluşturulamadı. Lütfen tüm ID alanlarını kontrol edin."
+          );
+        }
       }
 
-      loadButton.addEventListener("click", loadIframe);
+      function populateInputsFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const customerIdFromUrl = urlParams.get("customerId");
+        const modelFromUrl = urlParams.get("model");
+        const kiyafetFromUrl = urlParams.get("kiyafet");
+
+        if (customerIdFromUrl) {
+          customerIdInput.value = customerIdFromUrl;
+        }
+        // Model ve Kıyafet ID'leri için varsayılanlar zaten input'larda tanımlı,
+        // ama URL'de varsa onları da kullanabiliriz:
+        if (modelFromUrl) {
+          modelIdInput.value = modelFromUrl;
+        }
+        if (kiyafetFromUrl) {
+          kiyafetIdInput.value = kiyafetFromUrl;
+        }
+
+        // Eğer test-iframe.html'in URL'sinde customerId varsa, iframe'i otomatik yükle
+        if (customerIdFromUrl) {
+          console.log(
+            "URL'den customerId bulundu, iframe otomatik yükleniyor."
+          );
+          loadIframe();
+        }
+      }
+
+      loadManualButton.addEventListener("click", loadIframe);
+
+      fetchDefaultsButton.addEventListener("click", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const customerIdFromUrl = urlParams.get("customerId");
+
+        if (customerIdFromUrl) {
+          customerIdInput.value = customerIdFromUrl; // URL'deki customerId'yi koru
+        } else if (!customerIdInput.value) {
+          alert(
+            "Lütfen bir Müşteri ID girin veya ana sayfadan seçerek bu sayfaya gelin."
+          );
+          return;
+        }
+        // Müşteri ID input'ta zaten varsa (URL'den gelmemiş ama elle girilmişse) onu kullan.
+        // Model ve Kıyafet ID'lerini varsayılanlara ayarla:
+        modelIdInput.value = "default_model";
+        kiyafetIdInput.value = "default_garment";
+        loadIframe();
+      });
 
       // Iframe'den gelen mesajları dinle
       window.addEventListener(
         "message",
         (event) => {
-          // Kaynağı doğrula (Geliştirme için localhost:8000 yeterli)
-          if (event.origin !== trustedTryonOrigin) {
+          if (event.origin !== TRUSTED_IFRAME_ORIGIN) {
             console.warn(
-              `Güvenilmeyen kaynaktan mesaj: ${event.origin}. İptal edildi.`
+              `Güvenilmeyen kaynaktan mesaj: ${event.origin}. İptal edildi. Beklenen: ${TRUSTED_IFRAME_ORIGIN}`
             );
             return;
           }
 
-          // Mesajın beklenen formatta olup olmadığını kontrol et
           if (
             event.data &&
             event.data.type === "virtualTryonResult" &&
@@ -113,26 +216,30 @@
           ) {
             const receivedCustomerId = event.data.customerId;
             const receivedImageUrl = event.data.imageUrl;
-
             console.log(
               `Iframe'den sonuç alındı (Müşteri: ${receivedCustomerId}):`,
-              receivedImageUrl.substring(0, 50) + "..."
+              receivedImageUrl.substring(0, 100) + "..."
             );
-
             resultArea.innerHTML = `<p>Sonuç (Müşteri: ${receivedCustomerId}) alındı:</p>`;
             resultImage.src = receivedImageUrl;
             resultImage.style.display = "block";
           } else {
-            console.log("Alınan mesaj beklenen formatta değil:", event.data);
+            console.log(
+              "Alınan mesaj beklenen formatta değil veya farklı bir tipte:",
+              event.data
+            );
           }
         },
         false
       );
 
-      console.log("Test sayfası yüklendi, iframe mesajları dinleniyor.");
+      // Sayfa ilk yüklendiğinde URL parametrelerini işle
+      populateInputsFromUrl();
 
-      // Sayfa ilk yüklendiğinde iframe'i otomatik yükle (isteğe bağlı)
-      // loadIframe();
+      console.log(
+        "Test iframe sayfası yüklendi. Beklenen iframe origin:",
+        TRUSTED_IFRAME_ORIGIN
+      );
     </script>
   </body>
 </html>

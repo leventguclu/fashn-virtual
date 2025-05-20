@@ -9,40 +9,56 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           Helvetica, Arial, sans-serif;
         line-height: 1.6;
-        padding: 40px;
+        padding: 20px; /* Üst ve yan boşlukları azalttık */
         background-color: #f4f7f6;
         color: #333;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        text-align: center;
         margin: 0;
       }
-      .container {
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 30px; /* Bölümler arası boşluk */
+        width: 100%;
+      }
+      .section-container {
         background-color: #ffffff;
-        padding: 40px;
+        padding: 30px;
         border-radius: 8px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        max-width: 600px;
+        width: 100%;
+        max-width: 700px; /* Maksimum genişliği biraz artırdık */
+        box-sizing: border-box;
       }
-      h1 {
+      h1,
+      h2 {
         color: #2c3e50;
-        margin-bottom: 15px;
+        margin-top: 0;
+        margin-bottom: 20px;
+        text-align: center;
       }
       p {
         color: #555;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
+        text-align: center;
       }
-      .buttons {
-        display: flex;
-        flex-direction: column; /* Butonları alt alta sırala */
-        gap: 15px; /* Butonlar arası boşluk */
-        align-items: center; /* Butonları ortala */
+      label,
+      input,
+      button {
+        display: block;
+        width: calc(100% - 20px); /* Padding'i hesaba kat */
+        margin-bottom: 15px;
+        box-sizing: border-box;
       }
-      .button {
-        display: inline-block;
-        padding: 12px 25px;
+      input[type="text"],
+      input[type="url"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button,
+      .button-link {
+        padding: 12px 20px;
         border: none;
         border-radius: 5px;
         background-color: #3498db;
@@ -51,35 +67,239 @@
         text-decoration: none;
         cursor: pointer;
         transition: background-color 0.3s ease;
-        width: 250px; /* Buton genişliğini sabitle */
-        box-sizing: border-box; /* Padding'i genişliğe dahil et */
+        text-align: center;
       }
-      .button:hover {
+      button:hover,
+      .button-link:hover {
         background-color: #2980b9;
       }
-      .button-secondary {
-        background-color: #5dade2;
+      #customer-list ul {
+        list-style: none;
+        padding: 0;
       }
-      .button-secondary:hover {
-        background-color: #4a90e2;
+      #customer-list li {
+        border: 1px solid #eee;
+        margin-bottom: 8px;
+        padding: 12px;
+        border-radius: 4px;
+      }
+      #customer-list li a {
+        text-decoration: none;
+        color: #3498db;
+        font-weight: bold;
+        display: block;
+      }
+      #customer-list li a:hover {
+        color: #2980b9;
+      }
+      .loading,
+      .status-message,
+      .error-message {
+        text-align: center;
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 4px;
+      }
+      .loading {
+        font-style: italic;
+        color: grey;
+      }
+      .status-message {
+        background-color: #e6f7f2;
+        color: #007b5e;
+        border: 1px solid #b2dfdb;
+      }
+      .error-message {
+        background-color: #fdecea;
+        color: #c0392b;
+        border: 1px solid #f5c6cb;
       }
     </style>
+    <!-- Supabase JS Kütüphanesi (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
-    <div class="container">
-      <h1>Fashn Virtual Try-on Sistemine Hoş Geldiniz</h1>
-      <p>
-        Bu platform, sanal kıyafet deneme uygulamasını yönetmenizi ve test
-        etmenizi sağlar.
-      </p>
-      <div class="buttons">
-        <a href="/admin.html" class="button">Müşteri Yönetim Paneli</a>
-        <a href="/test-iframe.html" class="button button-secondary"
-          >Iframe Test Sayfası</a
-        >
-        <!-- Belki ileride gerçek uygulama linki de eklenebilir -->
-        <!-- <a href="/frontend/" class="button button-tertiary">Uygulamayı Aç</a> -->
+    <div class="main-container">
+      <div class="section-container">
+        <h1>Fashn Sanal Deneme Platformuna Hoş Geldiniz</h1>
+        <p>İşlem yapmak için aşağıdaki seçeneklerden birini kullanın.</p>
+      </div>
+
+      <div class="section-container" id="existing-customers-section">
+        <h2>Mevcut Müşteriler</h2>
+        <div id="customer-list">
+          <ul id="customers">
+            <li class="loading">Müşteriler yükleniyor...</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-container" id="add-customer-section">
+        <h2>Yeni Müşteri Ekle</h2>
+        <form id="add-customer-form">
+          <label for="customer-slug"
+            >Müşteri Kısa Kodu (Slug - Örn: firma-adi):</label
+          >
+          <input
+            type="text"
+            id="customer-slug"
+            required
+            placeholder="ornek-firma-1"
+          />
+
+          <label for="company-name">Firma İsmi:</label>
+          <input type="text" id="company-name" required />
+
+          <label for="contact-name">Yetkili İsim Soyisim:</label>
+          <input type="text" id="contact-name" required />
+
+          <label for="allowed-origins"
+            >İzin Verilen Domainler (Virgülle ayırın, örn:
+            https://site1.com):</label
+          >
+          <input
+            type="text"
+            id="allowed-origins"
+            placeholder="https://musteri.com, https://test.musteri.com"
+          />
+
+          <button type="submit">Yeni Müşteriyi Ekle</button>
+        </form>
+        <div id="add-customer-status"></div>
       </div>
     </div>
+
+    <script>
+      // --- SUPABASE AYARLARI ---
+      const SUPABASE_URL = "https://yunkiwiqbinohpbajtif.supabase.co";
+      const SUPABASE_ANON_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bmtpd2lxYmlub2hwYmFqdGlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDA4MjksImV4cCI6MjA1OTc3NjgyOX0.2RvT44e-c8BGx2dmJbBK3wXo7H2QbFWEjfBkWmArXIQ";
+
+      let supabase = null;
+      try {
+        supabase = window.supabase.createClient(
+          SUPABASE_URL,
+          SUPABASE_ANON_KEY
+        );
+        console.log("Supabase bağlantısı başarılı.");
+      } catch (error) {
+        console.error("Supabase başlatılamadı:", error);
+        alert("Supabase bağlantısı kurulamadı.");
+      }
+
+      // --- DOM Elementleri ---
+      const addCustomerForm = document.getElementById("add-customer-form");
+      const customerSlugInput = document.getElementById("customer-slug");
+      const companyNameInput = document.getElementById("company-name");
+      const contactNameInput = document.getElementById("contact-name");
+      const allowedOriginsInput = document.getElementById("allowed-origins");
+      const addCustomerStatus = document.getElementById("add-customer-status");
+      const customersListUl = document.getElementById("customers");
+
+      // --- Fonksiyonlar ---
+      async function loadCustomers() {
+        if (!supabase) return;
+        customersListUl.innerHTML =
+          '<li class="loading">Müşteriler yükleniyor...</li>';
+
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select("id, customer_slug, company_name, contact_name")
+            .order("company_name", { ascending: true });
+
+          if (error) throw error;
+
+          customersListUl.innerHTML = ""; // Yükleniyor mesajını temizle
+          if (data.length === 0) {
+            customersListUl.innerHTML = "<li>Henüz kayıtlı müşteri yok.</li>";
+            return;
+          }
+
+          data.forEach((customer) => {
+            const li = document.createElement("li");
+            const link = document.createElement("a");
+            // Hedef URL: /tryon?customerId=CUSTOMER_SLUG
+            // Not: Projeniz onrender.com üzerinde doğrudan /tryon adresini mi kullanıyor,
+            // yoksa test-iframe.html gibi bir dosya mı? Şimdilik /tryon varsayıyorum.
+            // Eğer test-iframe.html ise, link.href = `/test-iframe.html?customerId=${customer.customer_slug}`; olmalı.
+            link.href = `/tryon?customerId=${customer.customer_slug}`;
+            link.textContent = `${customer.company_name} (${customer.customer_slug})`;
+            li.appendChild(link);
+            customersListUl.appendChild(li);
+          });
+        } catch (error) {
+          console.error("Müşteri listesi yüklenirken hata:", error);
+          customersListUl.innerHTML =
+            '<li class="error-message">Müşteriler yüklenemedi.</li>';
+        }
+      }
+
+      addCustomerForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!supabase) {
+          addCustomerStatus.className = "error-message";
+          addCustomerStatus.textContent = "Supabase bağlantısı yok.";
+          return;
+        }
+
+        const slug = customerSlugInput.value.trim();
+        const companyName = companyNameInput.value.trim();
+        const contactName = contactNameInput.value.trim();
+        const origins = allowedOriginsInput.value
+          .split(",")
+          .map((item) => item.trim())
+          .filter((item) => item);
+
+        if (!slug || !companyName || !contactName) {
+          addCustomerStatus.className = "error-message";
+          addCustomerStatus.textContent =
+            "Lütfen tüm zorunlu alanları doldurun.";
+          return;
+        }
+
+        addCustomerStatus.className = "loading";
+        addCustomerStatus.textContent = "Müşteri ekleniyor...";
+
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .insert([
+              {
+                customer_slug: slug,
+                company_name: companyName,
+                contact_name: contactName,
+                allowed_origins: origins.length > 0 ? origins : null, // Boşsa null gönder
+              },
+            ])
+            .select();
+
+          if (error) {
+            // Slug benzersizliği gibi veritabanı hatalarını kontrol et
+            if (error.code === "23505") {
+              // unique_violation
+              throw new Error(
+                `'${slug}' kısa kodu zaten kullanılıyor. Lütfen farklı bir değer girin.`
+              );
+            }
+            throw error;
+          }
+
+          addCustomerStatus.className = "status-message";
+          addCustomerStatus.textContent = `Müşteri '${companyName}' başarıyla eklendi!`;
+          addCustomerForm.reset(); // Formu temizle
+          loadCustomers(); // Listeyi yenile
+        } catch (error) {
+          console.error("Müşteri eklenirken hata:", error);
+          addCustomerStatus.className = "error-message";
+          addCustomerStatus.textContent = "Hata: " + error.message;
+        }
+      });
+
+      // Sayfa yüklendiğinde müşterileri yükle
+      if (supabase) {
+        loadCustomers();
+      }
+    </script>
   </body>
 </html>
